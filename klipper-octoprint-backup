@@ -1,1 +1,956 @@
-*****
+# This file serves as documentation for config parameters. One may
+# copy and edit this file to configure a new cartesian style
+# printer. For delta style printers, see the "example-delta.cfg"
+# file. For corexy/h-bot style printers, see the "example-corexy.cfg"
+# file. Only common config sections are described here - see the
+# "example-extras.cfg" file for configuring less common devices.
+
+# DO NOT COPY THIS FILE WITHOUT CAREFULLY READING AND UPDATING IT
+# FIRST. Incorrectly configured parameters may cause damage.
+
+# A note on pin names: pins may be configured with a hardware name
+# (such as "PA4") or with an Arduino alias name (such as "ar29" or
+# "analog3"). In order to use Arduino names, the pin_map variable in
+# the mcu section must be present and have a value of "arduino". Pin
+# names may be preceded by an '!' to indicate that a reverse polarity
+# should be used (eg, trigger on low instead of high). Input pins may
+# be preceded by a '^' to indicate that a hardware pull-up resistor
+# should be enabled for the pin. If the micro-controller supports
+# pull-down resistors then an input pin may alternatively be preceded
+# by a '~'.
+
+
+
+##### PRINTER #####
+###################
+
+[printer]
+kinematics: cartesian
+max_velocity: 300
+max_accel: 2500
+max_z_velocity: 5
+max_z_accel: 100
+
+#square_corner_velocity: 5.0 ? ChatGPT
+
+#max_accel_to_decel:
+#   A pseudo acceleration (in mm/s^2) controlling how fast the
+#   toolhead may go from acceleration to deceleration. It is used to
+#   reduce the top speed of short zig-zag moves (and thus reduce
+#   printer vibration from these moves). The default is half of
+#   max_accel.
+
+#square_corner_velocity: 5.0
+#   The maximum velocity (in mm/s) that the toolhead may travel a 90
+#   degree corner at. A non-zero value can reduce changes in extruder
+#   flow rates by enabling instantaneous velocity changes of the
+#   toolhead during cornering. This value configures the internal
+#   centripetal velocity cornering algorithm; corners with angles
+#   larger than 90 degrees will have a higher cornering velocity while
+#   corners with angles less than 90 degrees will have a lower
+#   cornering velocity. If this is set to zero then the toolhead will
+#   decelerate to zero at each corner. The default is 5mm/s.
+
+
+
+##### STEPPERS #####
+####################
+
+[stepper_x]
+step_pin: PB13
+dir_pin: PB12
+enable_pin: !PB14
+step_distance: .0125
+endstop_pin: ^PC0
+position_endstop: 0
+position_max: 220 # Ender-5 real size
+homing_speed: 100
+second_homing_speed: 2
+homing_retract_dist: 2
+
+[tmc2209 stepper_x]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 0
+microsteps: 16
+run_current: 0.580
+hold_current: 0.500
+stealthchop_threshold: 250
+
+
+[stepper_y]
+step_pin: PB10
+dir_pin: PB2
+enable_pin: !PB11
+step_distance: .0125
+endstop_pin: ^PC1
+position_endstop: 0
+position_max: 220 # Ender-5 real size
+homing_speed: 100
+second_homing_speed: 2
+homing_retract_dist: 2
+
+[tmc2209 stepper_y]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 2
+microsteps: 16
+run_current: 0.580
+hold_current: 0.500
+stealthchop_threshold: 250
+
+
+[stepper_z]
+step_pin: PB0
+dir_pin: !PC5
+enable_pin: !PB1
+step_distance: .00125
+endstop_pin: probe:z_virtual_endstop
+position_max: 250
+position_min: -25
+homing_speed: 75
+second_homing_speed: 2
+homing_retract_dist: 2
+
+[tmc2209 stepper_z]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 1
+microsteps: 16
+run_current: 0.580
+hold_current: 0.500
+stealthchop_threshold: 5
+
+
+
+##### EXTRUDER #####
+####################
+
+[extruder]
+step_pin: PB3
+dir_pin: !PB4
+enable_pin: !PD2
+step_distance: 0.010526
+nozzle_diameter: 0.400
+filament_diameter: 1.750
+heater_pin: PC8
+sensor_type: EPCOS 100K B57560G104F
+sensor_pin: PA0
+#control: pid
+#pid_Kp: 21.527
+#pid_Ki: 1.063
+#pid_Kd: 108.982
+min_temp: 0
+max_temp: 260
+#pressure_advance: 0.1 #PLA
+
+[tmc2209 extruder]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 3
+microsteps: 16
+run_current: 0.650
+hold_current: 0.500
+stealthchop_threshold: 5
+
+#max_extrude_cross_section:
+#   Maximum area (in mm^2) of an extrusion cross section (eg,
+#   extrusion width multiplied by layer height). This setting prevents
+#   excessive amounts of extrusion during relatively small XY moves.
+#   If a move requests an extrusion rate that would exceed this value
+#   it will cause an error to be returned. The default is: 4.0 *
+#   nozzle_diameter^2
+
+#instantaneous_corner_velocity: 1.000
+#   The maximum instantaneous velocity change (in mm/s) of the
+#   extruder during the junction of two moves. The default is 1mm/s.
+
+#max_extrude_only_distance: 50.0
+#   Maximum length (in mm of raw filament) that a retraction or
+#   extrude-only move may have. If a retraction or extrude-only move
+#   requests a distance greater than this value it will cause an error
+#   to be returned. The default is 50mm.
+
+#max_extrude_only_velocity:
+#max_extrude_only_accel:
+#   Maximum velocity (in mm/s) and acceleration (in mm/s^2) of the
+#   extruder motor for retractions and extrude-only moves. These
+#   settings do not have any impact on normal printing moves. If not
+#   specified then they are calculated to match the limit an XY
+#   printing move with a cross section of 4.0*nozzle_diameter^2 would
+#   have.
+
+#pressure_advance: 0.0
+#   The amount of raw filament to push into the extruder during
+#   extruder acceleration. An equal amount of filament is retracted
+#   during deceleration. It is measured in millimeters per
+#   millimeter/second. The default is 0, which disables pressure
+#   advance.
+
+#pressure_advance_smooth_time: 0.040
+#   A time range (in seconds) to use when calculating the average
+#   extruder velocity for pressure advance. A larger value results in
+#   smoother extruder movements. This parameter may not exceed 200ms.
+#   This setting only applies if pressure_advance is non-zero. The
+#   default is 0.040 (40 milliseconds).
+
+
+### The remaining variables describe the extruder heater. ###
+
+#max_power: 1.0
+
+#pullup_resistor: 4700
+#   The resistance (in ohms) of the pullup attached to the thermistor.
+#   This parameter is only valid when the sensor is a thermistor. The
+#   default is 4700 ohms.
+
+#inline_resistor: 0
+#   The resistance (in ohms) of an extra (not heat varying) resistor
+#   that is placed inline with the thermistor. It is rare to set this.
+#   This parameter is only valid when the sensor is a thermistor. The
+#   default is 0 ohms.
+
+#smooth_time: 2.0
+#   A time value (in seconds) over which temperature measurements will
+#   be smoothed to reduce the impact of measurement noise. The default
+#   is 2 seconds.
+
+#pid_integral_max:
+#   The maximum "windup" the integral term may accumulate. The default
+#   is to use the same value as max_power.
+
+#max_delta: 2.0
+#   On 'watermark' controlled heaters this is the number of degrees in
+#   Celsius above the target temperature before disabling the heater
+#   as well as the number of degrees below the target before
+#   re-enabling the heater. The default is 2 degrees Celsius.
+
+#pwm_cycle_time: 0.100
+#   Time in seconds for each software PWM cycle of the heater. It is
+#   not recommended to set this unless there is an electrical
+#   requirement to switch the heater faster than 10 times a second.
+#   The default is 0.100 seconds.
+
+#min_extrude_temp: 170
+#   The minimum temperature (in Celsius) at which extruder move
+#   commands may be issued. The default is 170 Celsius.
+
+
+
+##### BED #####
+###############
+
+[heater_bed]
+heater_pin: PC9
+sensor_type: ATC Semitec 104GT-2
+sensor_pin: PC3
+#control: pid
+#pid_Kp: 54.027
+#pid_Ki: 0.770
+#pid_Kd: 948.182
+min_temp: 0
+max_temp: 130
+
+
+[bltouch]
+sensor_pin: ^PC14
+control_pin: PA1
+x_offset: -41
+y_offset: +5
+#z_offset: 2.150
+pin_up_touch_mode_reports_triggered: True
+pin_up_reports_not_triggered: True
+pin_move_time: 0.45
+stow_on_each_sample: False
+probe_with_touch_mode: True
+
+[bed_mesh]
+# Safe area (NOZZLE coords) with BLTouch -41, +5 on 220x220 bed
+mesh_min: 45,10     # nozzle coords
+mesh_max: 179,210   # nozzle coords
+probe_count: 5,5
+speed: 100
+horizontal_move_z: 5
+#fade_start: 3
+#fade_end: 5
+
+
+
+
+[safe_z_home]
+# Center the PROBE (~110,110) => nozzle at (110-(-41), 110+5) = (151,105)
+home_xy_position: 151,105
+speed: 100
+z_hop: 5
+z_hop_speed: 5
+
+
+
+##### MISC #####
+################
+
+[fan]
+pin: PC6
+
+[heater_fan nozzle_cooling_fan]
+pin: PC7
+
+#max_power: 1.0
+#   The maximum power (expressed as a value from 0.0 to 1.0) that the
+#   pin may be set to. The value 1.0 allows the pin to be set fully
+#   enabled for extended periods, while a value of 0.5 would allow the
+#   pin to be enabled for no more than half the time. This setting may
+#   be used to limit the total power output (over extended periods) to
+#   the fan. If this value is less than 1.0 then fan speed requests
+#   will be scaled between zero and max_power (for example, if
+#   max_power is .9 and a fan speed of 80% is requested then the fan
+#   power will be set to 72%). The default is 1.0.
+
+#shutdown_speed: 0
+#   The desired fan speed (expressed as a value from 0.0 to 1.0) if
+#   the micro-controller software enters an error state. The default
+#   is 0.
+
+#cycle_time: 0.010
+#   The amount of time (in seconds) for each PWM power cycle to the
+#   fan. It is recommended this be 10 milliseconds or greater when
+#   using software based PWM. The default is 0.010 seconds.
+
+#hardware_pwm: False
+#   Enable this to use hardware PWM instead of software PWM. Most fans
+#   do not work well with hardware PWM, so it is not recommended to
+#   enable this unless there is an electrical requirement to switch at
+#   very high speeds. When using hardware PWM the actual cycle time is
+#   constrained by the implementation and may be significantly
+#   different than the requested cycle_time. The default is False.
+
+#kick_start_time: 0.100
+#   Time (in seconds) to run the fan at full speed when either first
+#   enabling or increasing it by more than 50% (helps get the fan
+#   spinning). The default is 0.100 seconds.
+
+#off_below: 0.0
+#   The minimum input speed which will power the fan (expressed as a
+#   value from 0.0 to 1.0). When a speed lower than off_below is
+#   requested the fan will instead be turned off. This setting may be
+#   used to prevent fan stalls and to ensure kick starts are
+#   effective. The default is 0.0.
+#
+#   This setting should be recalibrated whenever max_power is adjusted.
+#   To calibrate this setting, start with off_below set to 0.0 and the
+#   fan spinning. Gradually lower the fan speed to determine the lowest
+#   input speed which reliably drives the fan without stalls. Set
+#   off_below to the duty cycle corresponding to this value (for
+#   example, 12% -> 0.12) or slightly higher.
+
+
+[static_digital_output usb_pullup_enable]
+pins: !PA14
+
+
+[board_pins]
+aliases:
+    # EXP1 header
+    EXP1_1=PB5, EXP1_3=PA9,   EXP1_5=PA10, EXP1_7=PB8, EXP1_9=<GND>,
+    EXP1_2=PA15, EXP1_4=<RST>, EXP1_6=PB9,  EXP1_8=PB15, EXP1_10=<5V>
+
+
+[display]
+lcd_type: st7920
+cs_pin: EXP1_7
+sclk_pin: EXP1_6
+sid_pin: EXP1_8
+encoder_pins: ^EXP1_5, ^EXP1_3
+click_pin: ^!EXP1_2
+
+
+[mcu]
+serial: /dev/serial/by-id/usb-Klipper_stm32f103xe_35FFD7054246303008581157-if00
+baud: 250000
+#pin_map: arduino
+
+#restart_method:
+#   This controls the mechanism the host will use to reset the
+#   micro-controller. The choices are 'arduino', 'cheetah', 'rpi_usb',
+#   and 'command'. The 'arduino' method (toggle DTR) is common on
+#   Arduino boards and clones. The 'cheetah' method is a special
+#   method needed for some Fysetc Cheetah boards. The 'rpi_usb' method
+#   is useful on Raspberry Pi boards with micro-controllers powered
+#   over USB - it briefly disables power to all USB ports to
+#   accomplish a micro-controller reset. The 'command' method involves
+#   sending a Klipper command to the micro-controller so that it can
+#   reset itself. The default is 'arduino' if the micro-controller
+#   communicates over a serial port, 'command' otherwise.
+
+
+
+# Looking for more options? Check the example-extras.cfg file.
+
+
+##### MACROS #####
+##################
+
+[gcode_macro G29]
+gcode:
+    BED_MESH_CALIBRATE
+    BED_MESH_OUTPUT
+
+
+#Replace the slicer's custom start and end g-code scripts with
+# START_PRINT and END_PRINT.
+
+[gcode_macro START_PRINT]
+default_parameter_BED_TEMP: 60
+default_parameter_EXTRUDER_TEMP: 200
+gcode:
+    
+	M140 S{BED_TEMP}
+	G92 E0 ; Reset Extruder
+	G28 ; Home all axes
+	BED_MESH_PROFILE LOAD=default
+	G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed
+	G1 X10 Y 10 
+	
+	M190 S{BED_TEMP}
+	M104 S{EXTRUDER_TEMP}
+	M109 S{EXTRUDER_TEMP}
+	
+	G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed
+	G1 X0.1 Y20 Z0.3 F5000.0 ; Move to start position
+	G1 X0.1 Y200.0 Z0.3 F1500.0 E15 ; Draw the first line
+	G1 X0.4 Y200.0 Z0.3 F5000.0 ; Move to side a little
+	G1 X0.4 Y20 Z0.3 F1500.0 E30 ; Draw the second line
+	G92 E0 ; Reset Extruder
+	G1 Z2.0 F3000 ; Move Z Axis up little to prevent scratching of Heat Bed
+	G1 X5 Y20 Z0.3 F5000.0 ; Move over to prevent blob squish
+	
+	
+	
+#;Put printing message on LCD screen
+#M117 Heating... 
+#M140 S{BED_TEMP} ; set bed temp
+#
+#G28 X Y; Home X Y
+#G1 Y10 F3000; this is a good start heating position
+#M190 S{BED_TEMP} ; wait for bed temp
+#G28 Z ; Home Z
+#M104 S{EXTRUDER_TEMP} ; set extruder temp
+#
+##; Auto Leveling
+#BED_MESH_CALIBRATE
+##G28 Z;TODO THIS SHOULDNT BE REQUIRED
+#BED_MESH_PROFILE LOAD=default
+#
+#M109 S{EXTRUDER_TEMP} ; wait for extruder temp NB this heating occurs while leveling
+#
+#M117 Priming
+#; Start of print
+#G21; metric values
+#G90 ; absolute positioning
+#M82; set extruder to absolute mode
+#
+#; You may want to adjust the X and Y here so the nozzle is really above the bed!
+#G1 Z5; Move nozzle above 5 mm of the bed
+#
+#
+#; now print a line of filament to prepare extrusion
+#G92 E0 ; reset extruder
+#G1 X1 Y15 F5000.0 ; move to start-line position
+#G1 X1 Y15 Z0.3 F5000.0
+#G1 Y20 F1000 E0.8
+#G92 E0 ; reset extruder
+#G1 X1 Y200.0 Z0.3 F1500.0 E15 ; draw 1st line
+#G1 X1.4 Y200.0 Z0.3 F5000.0 ; move to side a little
+#G1 X1.4 Y20 Z0.3 F1500.0 E30 ; draw 2nd line
+#G1 E34 ; Retract extruder a bit
+#;G1 E32 ; Retract extruder a bit NOTE dont need to do this, slicer retracts automatically here
+#G92 E0 ; reset extruder
+#G1 Z3.0 F3000 ; move z up little to prevent scratching of surface
+#G1 X100 Y100 F15000
+#
+#;Tuning params
+#;Put printing message on LCD screen
+#M117 Printing... 
+#; Start of actual GCode for the print
+
+[gcode_macro END_PRINT]
+gcode:
+	BED_MESH_CLEAR
+	# Turn off bed, extruder, and fan
+	M140 S0
+	M104 S0
+	M106 S0
+	# Move nozzle away from print while retracting
+	G91
+	G1 X-2 Y-2 E-3 F300
+	# Raise nozzle by 10mm
+	
+	G1 Z10 F3000
+	
+	G28 X Y 
+	#####G1 X10 Y10 Z60
+	#G90
+	# Disable steppers
+	M84
+
+
+
+
+##############################################################
+######### OPTIONS FROM https://pastebin.com/kLVzit76 #########
+##############################################################
+
+
+
+#pin_move_time: 0.5
+#   This determines if Klipper should command the pin to move up between each probe attempt when performing a multiple probe
+#   sequence. Setting this to False can allow for faster probing, but using this mode requires careful tuning of probing speed parameters. The default is True.
+
+#speed: 10
+#samples: 2
+#sample_retract_dist: 2.5
+# unsure if this affects bltouch or just probes
+#lift_speed: 40
+#samples_tolerance_retries: 3
+#x_offset: +41 
+#y_offset: -5
+##z_offset: 1.9
+ 
+#[force_move]
+#enable_force_move: True
+# 
+
+#[bed_mesh]
+#speed: 300
+#horizontal_move_z: 5.5
+#mesh_min: 40,30
+#mesh_max: 215,215
+#probe_count: 7,7
+#mesh_pps: 2,2
+#algorithm: bicubic
+#bicubic_tension: 0.2
+#relative_reference_index: 0
+
+
+# ================================================================================
+#   MACROS
+# ================================================================================
+# Replace the slicer's custom start and end g-code scripts with
+# START_PRINT and END_PRINT.
+
+#[gcode_macro START_PRINT]
+#default_parameter_BED_TEMP: 60
+#default_parameter_EXTRUDER_TEMP: 200
+#gcode:
+#    ;Put printing message on LCD screen
+#    M117 Heating... 
+#    M140 S{BED_TEMP} ; set bed temp
+# 
+#    G28 X Y; Home X Y
+#    G1 Y10 F3000; this is a good start heating position
+#    M190 S{BED_TEMP} ; wait for bed temp
+#    G28 Z ; Home Z
+#    M104 S{EXTRUDER_TEMP} ; set extruder temp
+# 
+#    #; Auto Leveling
+#    #BED_MESH_CALIBRATE
+#    #G28 Z;TODO THIS SHOULDNT BE REQUIRED
+#    #BED_MESH_PROFILE LOAD=default
+# 
+#    M109 S{EXTRUDER_TEMP} ; wait for extruder temp NB this heating occurs while leveling
+# 
+#    M117 Priming
+#    ; Start of print
+#    G21; metric values
+#    G90 ; absolute positioning
+#    M82; set extruder to absolute mode
+# 
+#    ; You may want to adjust the X and Y here so the nozzle is really above the bed!
+#    G1 Z5; Move nozzle above 5 mm of the bed
+#	####### WAS Z5 BEFORE ######
+# 
+#    ; now print a line of filament to prepare extrusion
+#    G92 E0 ; reset extruder
+#    G1 X1 Y15 F5000.0 ; move to start-line position
+#    G1 X1 Y15 Z0.3 F5000.0
+#    G1 Y20 F1000 E0.8
+#    G92 E0 ; reset extruder
+#    G1 X1 Y200.0 Z0.3 F1500.0 E15 ; draw 1st line
+#    G1 X1.4 Y200.0 Z0.3 F5000.0 ; move to side a little
+#    G1 X1.4 Y20 Z0.3 F1500.0 E30 ; draw 2nd line
+#    G1 E34 ; Retract extruder a bit
+#    ;G1 E32 ; Retract extruder a bit NOTE dont need to do this, slicer retracts automatically here
+#    G92 E0 ; reset extruder
+#    G1 Z3.0 F3000 ; move z up little to prevent scratching of surface
+#    G1 X100 Y100 F15000
+# 
+#    ;Tuning params
+#    ;Put printing message on LCD screen
+#    M117 Printing... 
+#    ; Start of actual GCode for the print
+#
+#[gcode_macro END_PRINT]
+#gcode:
+#    ;M108 ; this is a continue statement, if there are any waiting statements it will skip them. Unfortunately it doesn't work in klipper
+#    # Turn off bed, extruder, and fan
+#    M140 S0
+#    M104 S0
+#    M106 S0
+#    ; Use cancel print for movements etc
+#    CANCEL_PRINT
+#    G90
+#    # Disable steppers
+#    M84
+#    SAVE_IF_SET
+	
+#[gcode_macro CANCEL_PRINT]
+#gcode:
+#    M220 S100 ; Reset Speed factor override percentage to default (100%)
+#    M221 S100 ; Reset Extrude factor override percentage to default (100%)
+#    G91 ; Set coordinates to relative
+#    {% if printer.extruder.temperature >= 170 %}
+#       G1 F1800 E-1 ; Retract filament 3 mm to prevent oozing
+#    {% endif %}
+# 
+#    ;if all axis are homed, lift the hotend to leave room for hot filament to ooze and to keep it clear of the bed.
+#    {% if printer.toolhead.homed_axes == "xyz" %}
+#       G1 F6000 Z10 ; Move Z Axis up 10 mm to allow filament ooze freely
+#       G90 ; Set coordinates to absolute
+#       G1 X0 Y200 F1000 ; Move Heat Bed to the front for easy print removal
+# 
+#    {% endif %}
+#    M84 ; Disable stepper motors
+#    ;set part fan speed to zero.
+#    M106 S0
+#    ;bed and hotend are left at the print temps in case I want to restart.	
+	
+# =================================================================
+# Filament load and unload macros
+# =================================================================
+#[pause_resume]
+# M600: Filament Change. This macro will pause the printer, move the
+# tool to the change position, and retract the filament 50mm. Adjust
+# the retraction settings for your own extruder. After filament has
+# been changed, the print can be resumed from its previous position
+# with the "RESUME" gcode.
+ 
+#[gcode_macro PARK]
+#gcode:
+#    G1 X125 Y200.0 Z200.0 F4000
+#[gcode_macro FILAMENT_LOAD]
+#gcode:
+#    M83 ; set e to relative positioning
+#    G92 E0.0
+#    G1 E400 F1000 ; Initially go fast
+#    G92 E0.0
+#    G1 E50 F200 ; then go slow
+#    G92 E0.0
+# 
+#[gcode_macro FILAMENT_UNLOAD]
+#gcode:
+#    M83 ; set e to relative positioning
+#    # wiggle filament out of the nozzle
+#    G1 E0.5 F1000
+#    G1 E-0.5 F1000
+#    G1 E1.0 F1000
+#    G1 E-1.0 F1000
+#    G1 E1.5 F1000
+#    G1 E-1.5 F1000
+#    G1 E2.0 F1000
+# 
+#    G1 E-450 F3000 ;fully unload
+#    G92 E0.0
+# 
+#[gcode_macro M600]
+#default_parameter_X: 0
+#default_parameter_Y: 0
+#default_parameter_Z: 50
+#gcode:
+#    SAVE_GCODE_STATE NAME=M600_state
+#    PAUSE
+#    G91 ;relative
+#    G1 E-.2 F2700
+#    G1 Z{Z} ;raise nozzle
+#    G90 ;absolute
+#    G1 X{X} Y{Y} F3000
+#    G91 ;relative
+#    M300 P1000 ;beep
+#    FILAMENT_UNLOAD
+#    M300 P3000 ;beep
+#    G90 ;absolute
+#    RESTORE_GCODE_STATE NAME=M600_state
+ 
+# =================================================================
+# MENU MACRO
+# =================================================================
+#[menu __main]
+#type: list
+#name: Main Menu
+#items:
+#    __m600_paused
+#    __tune
+#    __octoprint
+#    __control
+#    __calibration
+#    __temp
+#    __filament
+#    __prepare
+# 
+#[menu __calibration]
+#type: list
+#name: Calibration
+#items:
+#    __calibration_home_all_axes
+#    __calibration_bed_mesh_calibrate
+#    __calibration_probe_calibrate
+#    __calibration_probe_accuracy
+#    __general_firmware_restart
+# 
+#[menu __calibration_accept]
+#type: command
+#name: Accept
+#gcode:
+#        ACCEPT
+# 
+#[menu __calibration_abort]
+#type: command
+#name: Abort
+#gcode:
+#        ABORT
+#action: back
+# 
+#[menu __calibration_probe_accuracy]
+#type: command
+#name: Test accuracy
+#gcode:
+#    G28
+#    PROBE_ACCURACY
+# 
+#[menu __calibration_save_config]
+#type: command
+#name: Save config
+#gcode:
+#        SAVE_CONFIG
+# 
+#[menu __general_firmware_restart]
+#type: command
+#name: Restart firmware
+#gcode:
+#        FIRMWARE_RESTART
+# 
+#[menu __calibration_home_all_axes]
+#type: command
+#name: Home XYZ
+#gcode:
+#        G28
+ 
+#[menu __calibration_probe_calibrate]
+#type: list
+#show_back: False
+#name: Adjust Z offset
+#enter_gcode:
+#    G28
+#    PROBE_CALIBRATE
+#items:
+#    __calibration__toolhead_zpos
+#    __calibration_probe_calibrate_testz_minus, __calibration_probe_calibrate_testz_plus
+#    __calibration_probe_calibrate_testz_minus_minus, __calibration_probe_calibrate_testz_plus_plus
+#    __calibration_probe_calibrate_testz_minus_1, __calibration_probe_calibrate_testz_plus_1
+#    __calibration_probe_calibrate_testz_minus_point_1, __calibration_probe_calibrate_testz_plus_point_1
+#    __calibration_accept
+#    __calibration_save_config
+#    __calibration_abort
+# 
+#[menu __calibration__toolhead_zpos]
+#type: item
+#width: 16
+#name: "Z = {0:.3f}"
+#cursor: \x20
+#parameter: toolhead.zpos
+# 
+#[menu __calibration_probe_calibrate_testz_minus]
+#cursor: \x20
+#type: command
+#width: 7
+#name: "   -"
+#gcode:
+#        TESTZ Z=-
+# 
+#[menu __calibration_probe_calibrate_testz_plus]
+#cursor: \x20
+#type: command
+#name: "   +"
+#width: 7
+#gcode:
+#        TESTZ Z=+
+# 
+#[menu __calibration_probe_calibrate_testz_minus_minus]
+#cursor: \x20
+#type: command
+#name: "   --"
+#width: 7
+#gcode:
+#        TESTZ Z=--
+# 
+#[menu __calibration_probe_calibrate_testz_plus_plus]
+#cursor: \x20
+#type: command
+#name: "   ++"
+#width: 7
+#gcode:
+#        TESTZ Z=++
+# 
+#[menu __calibration_probe_calibrate_testz_minus_1]
+#cursor: \x20
+#type: command
+#name: "  -1.0"
+#width: 7
+#gcode:
+#        TESTZ Z=-1
+# 
+#[menu __calibration_probe_calibrate_testz_plus_1]
+#cursor: \x20
+#type: command
+#name: "  +1.0"
+#width: 7
+#gcode:
+#        TESTZ Z=+1
+# 
+#[menu __calibration_probe_calibrate_testz_minus_point_1]
+#cursor: \x20
+#type: command
+#name: "  -0.1"
+#width: 7
+#gcode:
+#        TESTZ Z=-0.1
+# 
+#[menu __calibration_probe_calibrate_testz_plus_point_1]
+#cursor: \x20
+#type: command
+#name: "  +0.1"
+#width: 7
+#gcode:
+#        TESTZ Z=+0.1
+# 
+#[menu __calibration_bed_mesh_calibrate]
+#type: command
+#name: Generate bed mesh
+#width: 18
+#show_back: False
+#gcode:
+#   G29
+#items:
+#    __calibration_card_bed_mesh
+# 
+#[menu __calibration_card_bed_mesh]
+#type: vsdcard
+#name: Calibration card
+#content:
+#    "{0}"
+#    ""
+#    "   Will reboot"
+#    "  when complete"
+#items:
+#    __calibration_bed_mesh_calibrate_text_1
+# 
+#[menu __calibration_bed_mesh_calibrate_text_1]
+#type: item
+#name: "  [In progress]"
+#cursor: \x20
+ 
+# ==================================================================
+# M600 and filament change support
+# ==================================================================
+#[menu __filament __load]
+#type: command
+#name: Load
+#gcode:
+#    FILAMENT_LOAD
+# 
+#[menu __filament __unload]
+#type: command
+#name: Unload
+#gcode:
+#    FILAMENT_UNLOAD
+# 
+#[menu __filament __feed]
+#type: input
+#name: Feed: {0:.1f}
+#parameter: 0
+#input_step: 1
+#gcode:
+#    M83
+#    G1 E{0:.1f} F200
+# 
+#[menu __m600_paused]
+#type: list
+#enable: pause_resume.is_paused
+#name: M600 Paused
+#items:
+#    .__load
+#    .__unload
+#    .__purge
+#    .__resume
+# 
+#[menu __m600_paused __load]
+#type: command
+#name: Load
+#gcode:
+#    FILAMENT_LOAD
+# 
+#[menu __m600_paused __unload]
+#type: command
+#name: Unload
+#gcode:
+#    FILAMENT_UNLOAD
+# 
+#[menu __m600_paused __purge]
+#type: command
+#name: Purge
+#gcode:
+#    M83
+#    G1 E20 F200
+# 
+#[menu __m600_paused __resume]
+#type: command
+#name: Resume
+#gcode:
+#    RESUME
+
+
+####zoffset was 2.300
+
+#*# <---------------------- SAVE_CONFIG ---------------------->
+#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
+#*#
+#*# [extruder]
+#*# control = pid
+#*# pid_kp = 22.841
+#*# pid_ki = 1.248
+#*# pid_kd = 104.498
+#*#
+#*# [heater_bed]
+#*# control = pid
+#*# pid_kp = 72.736
+#*# pid_ki = 1.370
+#*# pid_kd = 965.570
+#*#
+#*# [bltouch]
+#*# z_offset = 2.300
+#*#
+#*# [bed_mesh default]
+#*# version = 1
+#*# points =
+#*# 	0.272500, 0.141250, 0.052500
+#*# 	0.131250, -0.010000, -0.040000
+#*# 	0.270000, 0.158750, 0.143750
+#*# tension = 0.2
+#*# min_x = 45.0
+#*# algo = lagrange
+#*# y_count = 3
+#*# mesh_y_pps = 2
+#*# min_y = 17.0
+#*# x_count = 3
+#*# max_y = 218.0
+#*# mesh_x_pps = 2
+#*# max_x = 190.0
