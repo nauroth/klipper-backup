@@ -5,9 +5,10 @@ This backup is provided by [Klipper-Backup](https://github.com/Staubgeborener/kl
 
 ## Layout
 
-One folder per printer, set via `backup_folder` in each machine's `.env`:
+One branch per printer, set via `branch_name` in each machine's `.env`.
+`main` is docs only — no printer backs up to it.
 
-| Printer | `backup_folder` |
+| Printer | branch |
 | --- | --- |
-| Ender 5 | `ender5` |
+| Ender 5 | [`ender5`](../../tree/ender5) |
 | Voron 2.4 | `voron2.4` |
