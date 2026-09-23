@@ -42,9 +42,13 @@ Status: 23.09.2026. Belongs to `printerBeta.cfg` in this folder.
   never ran. printerBeta adds them (see Fans). After switching, confirm with
   `DUMP_TMC STEPPER=stepper_z` (…z1, z2, z3, extruder) that `otpw` stays 0.
 - [ ] **X/Y TMC5160 fail to start.** The old logs show ~60× "TMC stepper_x/y
-  failed to init: Unable to write tmc spi". Typical cause: the 48 V supply
-  (UHP-200-48) is not up yet when Klipper starts. Check how the 48 V PSU is
-  switched. `FIRMWARE_RESTART` fixes it once 48 V is on.
+  failed to init: Unable to write tmc spi": the 48 V supply was not up when
+  Klipper started. **Fix in place:** the Shelly 2PM now switches 48 V on first
+  and off last (see Shelly). Verify: after a few power-ups, `klippy.log` has no
+  more "failed to init". One 5160T Plus had died; a replacement is bought.
+  Before installing it: meter both A/B motors (power recap §3), never plug a
+  motor with 48 V live. printerBeta has `sense_resistor: 0.022` (the 0.075
+  default would push ~3.4× the current).
 
 ### Hardware facts found while checking
 - Bed thermistor is plugged into **T0 (PB0)**, not TB (PB1). The config uses PB0.
@@ -109,13 +113,15 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     Enable "Label objects" so the adaptive mesh works.
   - Note: the heat soak is inside `PRINT_START`, so a cancel only takes effect
     after the soak. Emergency stop always works.
-- [ ] **LEDs**
+- [ ] **LEDs** (Daylight on a Stick wiring still to check)
   - Toolhead (Rapid Burner = Stealthburner layout): `[neopixel toolhead]` on
     EBB `PD3`, 3 LEDs, `GRBW`. Check: `STATUS_LEDS STATE=heating` should be
     orange. Wrong colours → try `color_order: GRB`.
-  - Daylight on a Stick ×2: **find out where they are wired** (HE2/HE3, a fan
-    port, or straight 24 V). The `[output_pin caselight]` block stays commented
-    until then, because turning on a guessed heater output is unsafe.
+  - Daylight on a Stick ×2: **find out where they are wired.** printerBeta has
+    commented placeholders for all three cases: A = free heater output (HE2 `PA3`
+    / HE3 `PA5`), B = free fan port (FAN4 `PA4`, jumper on 24 V), C = straight on
+    24 V (always on, nothing to configure). A/B come with a `LIGHTS S=0..1` macro.
+    All options were test-loaded. Never enable a guessed heater output.
   - Spare: bag 14 has a 3-LED loom (3-pin JST).
 - [ ] **Display**: Pi TFT43 V2.1 runs KlipperScreen (installed and working);
   nothing needed in printer.cfg. If the screen stays black after an OS update:
@@ -129,11 +135,20 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
   2. `COMPARE_BELTS_RESPONSES`: the A/B belt tension.
   3. `AXES_SHAPER_CALIBRATION`, then `SAVE_CONFIG` → `[input_shaper]`.
   4. Only then raise `max_velocity` / `max_accel` to what the graphs recommend.
-- [ ] **Kalico**: printerBeta works on both (tested). Recommendation: **stay on
-  mainline Klipper until the printer is stable**, then decide. Switching means
-  pointing `~/klipper` to Kalico and reflashing both boards (Manta is the CAN
-  bridge, so plan a USB/DFU fallback). Main benefit for this printer: **MPC**
-  temperature control for hotend and bed (would replace PID).
+- [ ] **Kalico**: printerBeta works on both (tested). Plan: bring the printer up
+  on mainline first (section 4, steps 1–7: new 5160, Shelly, fans, homing,
+  QGL), **then switch to Kalico before the temperature calibration** (step 8),
+  so heaters are calibrated only once, with MPC instead of PID.
+  - Why not straight away: the new driver, the power sequencing, the fans and
+    the new config all change at once. If something misbehaves you want to know
+    it's hardware/config and not the firmware swap. Rollback is also easier
+    (config vs. reflash).
+  - Switching means pointing `~/klipper` to Kalico and reflashing **both** boards.
+    The Manta is the USB-to-CAN bridge: if its flash fails, the EBB is
+    unreachable too, so have the USB/DFU way ready before starting.
+  - Kalico's main win here: **MPC** for hotend and bed. Needs the heater powers:
+    bed = the measured wattage (see Bed), hotend = Rapido 2 UHF heater power
+    (check the Phaetus data).
 - [ ] **TMC autotune**: already installed on the printer; printerBeta uses it for
   all 7 motors: X/Y `performance` at 48 V, Z `silent` at 24 V, extruder `auto`.
   The Z motor is defined in printerBeta as `ldo-42sth48-2504mac` (same values as
@@ -148,10 +163,10 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     new = 4.682 × (actual mm / 100).
   - Microsteps 16 with interpolation (autotune) = ~680 steps/mm. More is not needed.
   - Check the extruder direction once: `LOAD_FILAMENT` must pull filament in.
-- [ ] **Filament runout sensor** (Orbiter sensor on the toolhead)
-  - **Find the pins.** printerBeta uses EBB `PB4` (runout) and `PB3` (unload
-    button) on the I2C header. The other candidates are `PB5`/`PB7` on the
-    endstop port (`PB6` = X endstop).
+- [ ] **Filament runout sensor** (Orbiter sensor, **on the EBB36 I2C port**:
+  +5V, GND, PB3, PB4)
+  - printerBeta: `PB4` = runout, `PB3` = unload button. Which signal is which
+    is still to be tested. If swapped, swap the two pins.
   - Test: `QUERY_FILAMENT_SENSOR SENSOR=filament_sensor` with and without
     filament; `QUERY_BUTTON BUTTON=filament_unload_button` pressed and released.
     Reversed → add or remove `!`. **Do this before the first print:** if the sensor
@@ -162,29 +177,69 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
   use the `/dev/v4l/by-id/...` path, `resolution: 1280x720`, `max_fps: 30`.
   moonraker-timelapse is installed but disabled: enable `[timelapse]` in
   `moonraker.conf` and `[include timelapse.cfg]` in printer.cfg together.
-- [ ] **Shelly end of print**: Klipper side done (`_POWER_OFF_WHEN_COOL`, off by
-  default). Needed:
-  1. Which Shelly (Gen1/Plus), its IP, and **does it also power the CM4?** If it
-     does, the CM4 loses power without shutting down (risk to the eMMC).
-  2. `moonraker.conf`:
-     ```ini
-     [power printer]
-     type: shelly
-     address: 192.168.x.x
-     locked_while_printing: True
-     restart_klipper_when_powered: True
-     ```
-  3. Test once by hand: `AUTO_POWER_OFF ENABLE=1`, run a short print; the
-     printer turns off when the hotend is below 50 °C (the hotend fan keeps
-     running until then). Permanently: `variable_power_off_after_print: True`
-     in `_PRINT_VARS`.
+- [ ] **Shelly end of print**: Shelly 2PM Gen4, O1 = 48 V (on first, off last),
+  O2 = 24 V + bed SSR line (on last, off first), with a Shelly script
+  (`shelly_2pm_setup.md`). Reviewed:
+  - **Phase 1 script: OK.** Staging order, relay IDs, detached outputs,
+    power-on default OFF, `HTTPServer.registerEndpoint`, the toggle checking the
+    24 V relay: all correct. Until Phase 2, OFF is a hard cut of the CM4.
+  - **Phase 2 script:** in `powerOff()` give the POST a body; Shelly's
+    `HTTP.POST` expects one:
+    `Shelly.call("HTTP.POST", { url: "http://" + MOONRAKER + "/machine/shutdown", body: "{}", timeout: 10 });`
+  - **Phase 2 `moonraker.conf`: 2 errors in the draft.**
+    (1) `response_template` pipes the response *object* into `fromjson`, which
+    only takes text → every on/off/status call fails. (2) `bound_services:
+    klipper moonraker` is not allowed (Moonraker can't be bound to a power
+    device); drop the line, the CM4 is off with the printer anyway. Use:
+    ```ini
+    [power printer]
+    type: http
+    on_url: http://SHELLY-IP/script/1/on
+    off_url: http://SHELLY-IP/script/1/off
+    status_url: http://SHELLY-IP/rpc/Switch.GetStatus?id=1
+    response_template:
+      {% if command == "status" %}
+        {% if http_request.last_response().json()["output"] %}on{% else %}off{% endif %}
+      {% else %}
+        {command}
+      {% endif %}
+    locked_while_printing: True
+    off_when_shutdown: False
+    ```
+    Your existing `[authorization] trusted_clients` already covers
+    `192.168.0.0/16` and `10.0.0.0/8`, so no change there for a LAN Shelly.
+    Note: Mainsail's power button can only switch **off**; while the printer
+    is off the CM4 is off too, so power-on stays with the Shelly (button/app/HA).
+  - **Skip "Step C" (Klipper macros) from the Shelly file.** Its `_POWER` macro
+    has no `gcode:` line (Klipper refuses to start), its `PRINT_END` would
+    replace printerBeta's, and calling power-off *inside* `PRINT_END` is
+    blocked by `locked_while_printing` because the print is still running at
+    that point. printerBeta already does it correctly: `AUTO_POWER_OFF ENABLE=1`
+    (or `variable_power_off_after_print: True` in `_PRINT_VARS`) waits until the
+    print has **finished** and the hotend is below 50 °C, then calls the same
+    `printer` device → Shelly `/off` → clean CM4 shutdown → staged cut.
+  - **Don't enable the optional `safety_cut` device** (`off_when_shutdown: True`).
+    Klipper shuts down for many non-thermal reasons (CAN timeout, TMC errors
+    like the old 5160 init failures). Each would hard-cut the CM4 and stop the
+    hotend fan with a hot hotend (heat creep). The bed's thermal fuse and
+    Klipper's `verify_heater` are the right protection.
+  - Test: `AUTO_POWER_OFF ENABLE=1`, short print → shutdown after cooldown;
+    check the CM4 had halted before O2 cut (bump `SHUTDOWN_WAIT_MS` if not).
 - [ ] **Bed watermark vs PID → PID.** A steady plate temperature keeps the bed
   shape steady for the mesh, and the Omron SSR handles PID switching. First
-  start: `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`.
-  **Check the bed heater wattage** (label on the heater): the SSR is fine for a
-  typical 250 mm bed at 230 V (~400 W ≈ 1.7 A); compare with the G3NB-210B-1
-  datasheet (with or without heatsink) before changing `max_power`.
-  (Kalico MPC would be the next step, see Kalico.)
+  start: `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`
+  (or MPC if you are on Kalico by then).
+  - **Bed wattage (label unreadable):** measure it. Mains off and unplugged,
+    disconnect the two bed wires from the SSR/neutral, measure the resistance
+    across the heater. Watts = 230² / Ω, amps = 230 / Ω.
+    Example: 132 Ω → 400 W → 1.7 A; 88 Ω → 600 W → 2.6 A.
+    That gives the bed fuse (~1.5× amps), the SSR check (G3NB-210B-1 datasheet,
+    with/without heatsink) and the MPC heater power.
+  - **Thermal fuse:** the thicker part under heatshrink on one cable is probably
+    the thermal fuse. It only protects if it touches the bed: it must be
+    bonded/taped to the heater pad or bolted to the plate, not hanging in the
+    cable. Check where it sits. With a 115 °C fuse, printerBeta now has
+    `max_temp: 110` for the bed, so use bed targets up to ~105 °C.
 - [ ] **Fans**
   - Your question: **not always on.** Driver and enclosure fans only cool heat
     that the drivers and SSR produce, which only happens while motors are
@@ -197,12 +252,10 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     - Watch `CM4` and `Manta_M8P` in the temperature list. If the CM4 idles
       above ~70 °C with the fans off, add a `temperature_fan` on the host
       temperature.
-  - **Before the first start: check the fan-voltage jumpers on the Manta.**
-    Noisblocker XR1 = **12 V** fans; FAN1–3 must be on 12 V, not 24 V. Also
-    check the driver fans on FAN0 and the Noctua 6060 (which voltage, which port?).
-  - Nevermore StealthMax S + 3 under-bed units: find out how they are powered
-    (the white barrel-plug cable?). If on a Manta fan port → `[fan_generic nevermore]`
-    (template in printerBeta).
+  - [x] Fan-voltage jumpers checked and correct.
+  - Nevermore StealthMax S + 3 under-bed units: not connected yet. printerBeta
+    has commented placeholders on FAN5 (`PA6`) and FAN6 (`PA2`), plus a 10-min
+    run-on after prints. FAN4 is kept free for the chamber light.
   - Voron exhaust (loose, not installed): optional later.
 
 ---
@@ -211,13 +264,14 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
 
 Keep the emergency stop (M112) at hand from step 4 on.
 
-1. **Power off.** Check the fan-voltage jumpers (FAN0–3), check the Z drivers
-   (which one is V1.3).
+1. **Power off.** Install the replacement 5160T Plus (after metering the
+   motors), check the Z drivers (which one is V1.3), find where the bed thermal
+   fuse sits, measure the bed resistance.
 2. **SSH:** install Shake&Tune (command above). Copy `printerBeta.cfg` and
    `TODO.md` to `~/printer_data/config/`.
 3. **Switch:** keep `printer.cfg` as `printer_oldVoron.cfg`, rename
    `printerBeta.cfg` → `printer.cfg`, `FIRMWARE_RESTART`. Klipper must start
-   without errors. On "failed to init" for X/Y: 48 V PSU (see above).
+   without errors. "failed to init" for X/Y should now be gone (Shelly staging).
 4. **Nothing moves yet:**
    - Temperatures: extruder, bed, MCU, EBB36 and CM4 all read about room temperature.
    - `QUERY_PROBE`: open at rest, TRIGGERED when the nozzle is pushed up.
@@ -233,8 +287,10 @@ Keep the emergency stop (M112) at hand from step 4 on.
 6. `G32`: QGL range must shrink every round.
 7. **Paper test at the center:** `G0 X121 Y129 Z0.2`. Keep the z_offset or redo
    `PROBE_CALIBRATE`.
-8. `PID_CALIBRATE HEATER=extruder TARGET=245`, `SAVE_CONFIG`;
-   `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`.
+8. *(Switch to Kalico here if you want it, see Kalico.)*
+   `PID_CALIBRATE HEATER=extruder TARGET=245`, `SAVE_CONFIG`;
+   `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`
+   (on Kalico: MPC calibration instead).
 9. Z noise check: `G0 Z50 F600` / `G0 Z10 F600`, then `DUMP_TMC` for the Z drivers
    after 10 minutes (`otpw` must stay 0).
 10. Hot bed mesh: heat the bed to print temperature, 10–15 min, `G32`,
