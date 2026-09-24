@@ -3,8 +3,9 @@
 Status: 23.09.2026. Belongs to `printerBeta.cfg` in this folder.
 
 > **Klipper-Backup deletes files that are only in the repo.** On every run it
-> empties the repo and copies the printer's files back in. Copy `TODO.md` and
-> `printerBeta.cfg` into `~/printer_data/config/` on the printer (Mainsail →
+> empties the repo and copies the printer's files back in. Copy `TODO.md`,
+> `printerBeta.cfg`, `moonraker_power.conf` and `shelly_printer_power.js` into
+> `~/printer_data/config/` on the printer (Mainsail →
 > Machine → Upload) **before the next automatic backup runs**, otherwise the
 > next backup commit removes them from this branch (they stay in git history).
 
@@ -27,7 +28,8 @@ Status: 23.09.2026. Belongs to `printerBeta.cfg` in this folder.
 
 ### Open problems
 - [ ] **Z quacking, only when the gantry moves up.** 3 of 4 corners quack, Z3
-  (front right) is quiet.
+  (front right) is quiet. **Update 24.09.: mostly gone with printerBeta**
+  (0.8 A, Z max 20 mm/s, enclosure fans on). Driver check below still open.
   - Not the microsteps (32 made no difference). SpreadCycle made it louder →
     Z stays in StealthChop (`tuning_goal: silent`).
   - **New lead from the inventory:** the Z drivers are **3× TMC2209 V1.2 and
@@ -178,68 +180,73 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
   moonraker-timelapse is installed but disabled: enable `[timelapse]` in
   `moonraker.conf` and `[include timelapse.cfg]` in printer.cfg together.
 - [ ] **Shelly end of print**: Shelly 2PM Gen4, O1 = 48 V (on first, off last),
-  O2 = 24 V + bed SSR line (on last, off first), with a Shelly script
-  (`shelly_2pm_setup.md`). Reviewed:
-  - **Phase 1 script: OK.** Staging order, relay IDs, detached outputs,
-    power-on default OFF, `HTTPServer.registerEndpoint`, the toggle checking the
-    24 V relay: all correct. Until Phase 2, OFF is a hard cut of the CM4.
-  - **Phase 2 script:** in `powerOff()` give the POST a body; Shelly's
-    `HTTP.POST` expects one:
-    `Shelly.call("HTTP.POST", { url: "http://" + MOONRAKER + "/machine/shutdown", body: "{}", timeout: 10 });`
-  - **Phase 2 `moonraker.conf`: 2 errors in the draft.**
-    (1) `response_template` pipes the response *object* into `fromjson`, which
-    only takes text → every on/off/status call fails. (2) `bound_services:
-    klipper moonraker` is not allowed (Moonraker can't be bound to a power
-    device); drop the line, the CM4 is off with the printer anyway. Use:
-    ```ini
-    [power printer]
-    type: http
-    on_url: http://SHELLY-IP/script/1/on
-    off_url: http://SHELLY-IP/script/1/off
-    status_url: http://SHELLY-IP/rpc/Switch.GetStatus?id=1
-    response_template:
-      {% if command == "status" %}
-        {% if http_request.last_response().json()["output"] %}on{% else %}off{% endif %}
-      {% else %}
-        {command}
-      {% endif %}
-    locked_while_printing: True
-    off_when_shutdown: False
-    ```
-    Your existing `[authorization] trusted_clients` already covers
-    `192.168.0.0/16` and `10.0.0.0/8`, so no change there for a LAN Shelly.
-    Note: Mainsail's power button can only switch **off**; while the printer
-    is off the CM4 is off too, so power-on stays with the Shelly (button/app/HA).
-  - **Skip "Step C" (Klipper macros) from the Shelly file.** Its `_POWER` macro
-    has no `gcode:` line (Klipper refuses to start), its `PRINT_END` would
-    replace printerBeta's, and calling power-off *inside* `PRINT_END` is
-    blocked by `locked_while_printing` because the print is still running at
-    that point. printerBeta already does it correctly: `AUTO_POWER_OFF ENABLE=1`
-    (or `variable_power_off_after_print: True` in `_PRINT_VARS`) waits until the
-    print has **finished** and the hotend is below 50 °C, then calls the same
-    `printer` device → Shelly `/off` → clean CM4 shutdown → staged cut.
-  - **Don't enable the optional `safety_cut` device** (`off_when_shutdown: True`).
-    Klipper shuts down for many non-thermal reasons (CAN timeout, TMC errors
-    like the old 5160 init failures). Each would hard-cut the CM4 and stop the
-    hotend fan with a hot hotend (heat creep). The bed's thermal fuse and
-    Klipper's `verify_heater` are the right protection.
-  - Test: `AUTO_POWER_OFF ENABLE=1`, short print → shutdown after cooldown;
-    check the CM4 had halted before O2 cut (bump `SHUTDOWN_WAIT_MS` if not).
+  O2 = 24 V + bed SSR line (on last, off first). Phase 1 runs (48 V before
+  24 V). **Phase 2 implemented** (24.09.), 3 files in this folder:
+  - `shelly_printer_power.js`: the Shelly script with Phase 2 on. OFF halts
+    the CM4 via Moonraker, waits 60 s, then cuts 24 V and 48 V. Fixes: the
+    shutdown POST has a body; the print guard now also covers the `/off` URL
+    (not only the button); repeated OFF/ON during the 60 s wait are ignored.
+    `/cut` stays the unguarded emergency cut, long press = off even while
+    printing. Tested in a simulated Shelly runtime (12 scenarios).
+  - `moonraker_power.conf`: `[power printer]` http device with the fixed
+    response template (the draft's `fromjson` version fails on every call:
+    verified), no `bound_services`, `locked_while_printing: True`,
+    `off_when_shutdown: False` (no `safety_cut`).
+  - `printerBeta.cfg`: `AUTO_POWER_OFF ENABLE=1` / `variable_power_off_after_print`
+    for auto-off after a finished print (waits for hotend < 50 °C), and
+    `POWER_OFF_PRINTER` for a manual clean off. The draft's Step C macros are
+    not used.
+  - **To install:**
+    1. Shelly web UI → Scripts → open script 1 → replace all with
+       `shelly_printer_power.js` → set `MOONRAKER` to the CM4 IP:port → Save →
+       Restart. Give the CM4 a static IP / DHCP reservation.
+    2. Copy `moonraker_power.conf` next to `moonraker.conf`, replace
+       `SHELLY-IP` (3×), add `[include moonraker_power.conf]` to
+       `moonraker.conf`, restart Moonraker. Mainsail then shows a "printer"
+       power device.
+  - **Test (printer idle, nozzle cold):**
+    1. `http://SHELLY-IP/script/1/off` → Mainsail loses connection (CM4
+       halting); ~60 s later O2 clicks off, ~3 s later O1. The CM4's green LED
+       must be quiet before O2 clicks; else raise `SHUTDOWN_WAIT_MS`.
+    2. `.../script/1/on` → O1, then O2 after 1.5 s, CM4 boots.
+    3. Start a print, call `.../script/1/off` → refused (Shelly log:
+       "Refusing power-off: printing"). Cancel the print.
+    4. `POWER_OFF_PRINTER` from the console → same clean off as test 1.
+    5. `AUTO_POWER_OFF ENABLE=1`, short print → off after the hotend cooled.
+
 - [ ] **Bed watermark vs PID → PID.** A steady plate temperature keeps the bed
   shape steady for the mesh, and the Omron SSR handles PID switching. First
   start: `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`
-  (or MPC if you are on Kalico by then).
-  - **Bed wattage (label unreadable):** measure it. Mains off and unplugged,
-    disconnect the two bed wires from the SSR/neutral, measure the resistance
-    across the heater. Watts = 230² / Ω, amps = 230 / Ω.
-    Example: 132 Ω → 400 W → 1.7 A; 88 Ω → 600 W → 2.6 A.
-    That gives the bed fuse (~1.5× amps), the SSR check (G3NB-210B-1 datasheet,
-    with/without heatsink) and the MPC heater power.
-  - **Thermal fuse:** the thicker part under heatshrink on one cable is probably
-    the thermal fuse. It only protects if it touches the bed: it must be
-    bonded/taped to the heater pad or bolted to the plate, not hanging in the
-    cable. Check where it sits. With a 115 °C fuse, printerBeta now has
-    `max_temp: 110` for the bed, so use bed targets up to ~105 °C.
+  (or MPC if you are on Kalico by then). PID vs watermark does **not** explain
+  a bed that doesn't heat at all: both switch the SSR fully on when far below
+  target.
+  - **Bed:** Keenovo silicone pad **220 V 300 W** → ~330 W / 1.4 A at 230 V,
+    **~160 Ω**. Thermal fuse **125 °C** (printerBeta `max_temp: 110`). Bed
+    fuse ~2 A. MPC heater power (Kalico): 330.
+  - **Thermal fuse position:** it only protects if it touches the bed (bonded
+    to the pad or bolted to the plate), not hanging in the cable. Check.
+- [ ] **Bed does not heat at all.** Find where the chain breaks, from the
+  Klipper side to the heater. **Mains measurements only with the plug pulled.**
+  1. **Klipper:** set the bed to 60 °C. Mainsail must show the bed power near
+     100 % and the bed temperature at room temperature before (thermistor OK).
+     If power stays 0 %: config/Klipper issue; send me `klippy.log`.
+     (After ~1 min without a rise Klipper stops with "not heating at expected
+     rate". That's the safety check working.)
+  2. **SSR control side (24 V DC, safe):** with power at 100 %, the SSR's
+     input LED must light, and a meter on SSR input + / − shows ~24 V
+     (0 V when the bed is off).
+     - 0 V: the Manta's bed output isn't switching. Check that **BED IN** on
+       the M8P is powered (it has its own 24 V input, separate from the board
+       power), the HB → SSR wires (+ to +), and any fuse on the bed input.
+  3. **Mains side (plug pulled):**
+     - Measure across the two bed-heater wires at the SSR/terminal:
+       **~160 Ω = OK**. **Open (OL) = thermal fuse blown or heater broken.**
+       A blown 125 °C fuse means the bed once overheated: the SSR may be stuck
+       on. Check the SSR before replacing the fuse.
+     - Check the bed fuse in the O2 line (power recap, §6) and the wiring from
+       Shelly O2 → SSR → heater → N. O2 is on whenever the board runs (both on
+       the same channel).
+  4. Tell me what you found at each step.
 - [ ] **Fans**
   - Your question: **not always on.** Driver and enclosure fans only cool heat
     that the drivers and SSR produce, which only happens while motors are
