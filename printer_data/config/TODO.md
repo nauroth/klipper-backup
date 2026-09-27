@@ -55,7 +55,8 @@ Status: 23.09.2026. Belongs to `printerBeta.cfg` in this folder.
 ### Hardware facts found while checking
 - **Manta heater/thermistor ports (checked 27.09.):**
   HE1 (`PA1`) = bed SSR control · HE2 (`PA3`) = Daylight on a Stick ×2 ·
-  HE3 (`PA5`) = 3× under-bed Nevermore · HB (`PF5`) = unused ·
+  HE3 (`PA5`) = 3× under-bed Nevermore · HB (`PF5`) = unused (BED-POWER has
+  24 V, BED-OUT is empty: fine, spare 10 A output) ·
   TB (`PB1`) = bed thermistor (moved from TH0) · TH0 (`PB0`) = chamber thermistor.
 - **The old configs (oldVoron `machine.cfg` and the first `printer.cfg`) are now
   wrong for the bed:** heater on `PF5` and bed thermistor on `PB0`, which is the
