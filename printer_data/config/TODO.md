@@ -53,8 +53,13 @@ Status: 23.09.2026. Belongs to `printerBeta.cfg` in this folder.
   default would push ~3.4× the current).
 
 ### Hardware facts found while checking
-- Bed thermistor is plugged into **T0 (PB0)**, not TB (PB1). The config uses PB0.
-  Fine as is, just do not "correct" the pin.
+- **Manta heater/thermistor ports (checked 27.09.):**
+  HE1 (`PA1`) = bed SSR control · HE2 (`PA3`) = Daylight on a Stick ×2 ·
+  HE3 (`PA5`) = 3× under-bed Nevermore · HB (`PF5`) = unused ·
+  TB (`PB1`) = bed thermistor (moved from TH0) · TH0 (`PB0`) = chamber thermistor.
+- **The old configs (oldVoron `machine.cfg` and the first `printer.cfg`) are now
+  wrong for the bed:** heater on `PF5` and bed thermistor on `PB0`, which is the
+  chamber thermistor now. Don't heat the bed with them; use printerBeta.
 - Hotend is a **Rapido 2 Plus UHF** (old comments said HF).
 - The EBB36 PT1000 input is correct **without** the PT1000 jumper (4.7k pull-up).
   With the jumper you would need `pullup_resistor: 2200`.
@@ -87,9 +92,11 @@ for the Manta H723 and the EBB36 G0B1). **Critical = wrong machine behaviour.**
 | 15 | `[adxl345]` | Software SPI | Low | hardware SPI2 (BTT reference) |
 | 16 | missing | `[resonance_tester]`, `[exclude_object]`, temperature sensors | Low | added |
 
-Everything else (all motor, driver, endstop and heater pins, rotation distances,
-gear ratios, currents, QGL corners and points, safe_z_home) matches the BTT M8P
-V2 / EBB36 V1.2 references and the tested oldVoron config.
+| 17 | `[heater_bed]` | `heater_pin: PF5` (HB output), but the SSR is wired to **HE1**. This is why the bed never heated (in the oldVoron config too) | Critical | `PA1` (HE1), thermistor `PB1` (TB) |
+
+Everything else (motor, driver and endstop pins, rotation distances, gear
+ratios, currents, QGL corners and points, safe_z_home) matches the BTT M8P V2 /
+EBB36 V1.2 references and the tested oldVoron config.
 
 **printerBeta.cfg test result:** loads without errors on mainline Klipper
 (2026-09-18) **and** Kalico (2026-09-16), with autotune, Shake&Tune and
@@ -115,15 +122,12 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     Enable "Label objects" so the adaptive mesh works.
   - Note: the heat soak is inside `PRINT_START`, so a cancel only takes effect
     after the soak. Emergency stop always works.
-- [ ] **LEDs** (Daylight on a Stick wiring still to check)
+- [ ] **LEDs**
   - Toolhead (Rapid Burner = Stealthburner layout): `[neopixel toolhead]` on
     EBB `PD3`, 3 LEDs, `GRBW`. Check: `STATUS_LEDS STATE=heating` should be
     orange. Wrong colours → try `color_order: GRB`.
-  - Daylight on a Stick ×2: **find out where they are wired.** printerBeta has
-    commented placeholders for all three cases: A = free heater output (HE2 `PA3`
-    / HE3 `PA5`), B = free fan port (FAN4 `PA4`, jumper on 24 V), C = straight on
-    24 V (always on, nothing to configure). A/B come with a `LIGHTS S=0..1` macro.
-    All options were test-loaded. Never enable a guessed heater output.
+  - [x] Daylight on a Stick ×2 on **HE2** (`PA3`): `[output_pin caselight]`, on at
+    startup, `LIGHTS S=0..1` to dim or switch off.
   - Spare: bag 14 has a 3-LED loom (3-pin JST).
 - [ ] **Display**: Pi TFT43 V2.1 runs KlipperScreen (installed and working);
   nothing needed in printer.cfg. If the screen stays black after an OS update:
@@ -225,28 +229,19 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     fuse ~2 A. MPC heater power (Kalico): 330.
   - **Thermal fuse position:** it only protects if it touches the bed (bonded
     to the pad or bolted to the plate), not hanging in the cable. Check.
-- [ ] **Bed does not heat at all.** Find where the chain breaks, from the
-  Klipper side to the heater. **Mains measurements only with the plug pulled.**
-  1. **Klipper:** set the bed to 60 °C. Mainsail must show the bed power near
-     100 % and the bed temperature at room temperature before (thermistor OK).
-     If power stays 0 %: config/Klipper issue; send me `klippy.log`.
-     (After ~1 min without a rise Klipper stops with "not heating at expected
-     rate". That's the safety check working.)
-  2. **SSR control side (24 V DC, safe):** with power at 100 %, the SSR's
-     input LED must light, and a meter on SSR input + / − shows ~24 V
-     (0 V when the bed is off).
-     - 0 V: the Manta's bed output isn't switching. Check that **BED IN** on
-       the M8P is powered (it has its own 24 V input, separate from the board
-       power), the HB → SSR wires (+ to +), and any fuse on the bed input.
-  3. **Mains side (plug pulled):**
-     - Measure across the two bed-heater wires at the SSR/terminal:
-       **~160 Ω = OK**. **Open (OL) = thermal fuse blown or heater broken.**
-       A blown 125 °C fuse means the bed once overheated: the SSR may be stuck
-       on. Check the SSR before replacing the fuse.
-     - Check the bed fuse in the O2 line (power recap, §6) and the wiring from
-       Shelly O2 → SSR → heater → N. O2 is on whenever the board runs (both on
-       the same channel).
-  4. Tell me what you found at each step.
+- [x] **Bed does not heat at all → cause found (27.09.).** The SSR is driven
+  from Manta **HE1**, but every config so far switched the **HB** output
+  (`PF5`), where nothing is connected. printerBeta now uses `heater_pin: PA1`.
+  - **First heat test (watch it, hand on the power switch):**
+    1. Bed and chamber both read room temperature.
+    2. `M140 S50`: the SSR's input LED lights, the **bed** temperature rises and
+       the **chamber** reading doesn't jump. If the bed reading doesn't rise,
+       turn it off (`M140 S0`): the thermistors are swapped, and the heater would
+       run without control. (Klipper's `verify_heater` also stops after about
+       a minute without a rise.)
+    3. Then `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`.
+  - If it still doesn't heat with the LED on: mains side, plug pulled, heater
+    resistance ~160 Ω (open = heater or 125 °C fuse broken), bed fuse, SSR.
 - [ ] **Fans**
   - Your question: **not always on.** Driver and enclosure fans only cool heat
     that the drivers and SSR produce, which only happens while motors are
@@ -260,9 +255,13 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
       above ~70 °C with the fans off, add a `temperature_fan` on the host
       temperature.
   - [x] Fan-voltage jumpers checked and correct.
-  - Nevermore StealthMax S + 3 under-bed units: not connected yet. printerBeta
-    has commented placeholders on FAN5 (`PA6`) and FAN6 (`PA2`), plus a 10-min
-    run-on after prints. FAN4 is kept free for the chamber light.
+  - [x] 3× under-bed Nevermore on **HE3** (`PA5`): `[fan_generic nevermore_bed]`.
+    `PRINT_START` turns it on when the bed is ≥ 90 °C (`nevermore_min_bed` in
+    `_PRINT_VARS`); after the print or a cancel it keeps running 10 min. Use it
+    only fully on/off (`SET_FAN_SPEED FAN=nevermore_bed SPEED=1` / `0`).
+  - [ ] StealthMax S: not connected yet. Commented placeholder on FAN5 (`PA6`).
+  - [ ] Chamber thermistor on TH0 (`PB0`), set as `Generic 3950`: check it reads
+    room temperature; if it's way off, tell me the thermistor type.
   - Voron exhaust (loose, not installed): optional later.
 
 ---
@@ -280,7 +279,11 @@ Keep the emergency stop (M112) at hand from step 4 on.
    `printerBeta.cfg` → `printer.cfg`, `FIRMWARE_RESTART`. Klipper must start
    without errors. "failed to init" for X/Y should now be gone (Shelly staging).
 4. **Nothing moves yet:**
-   - Temperatures: extruder, bed, MCU, EBB36 and CM4 all read about room temperature.
+   - Temperatures: extruder, bed, chamber, MCU, EBB36 and CM4 all read about
+     room temperature.
+   - `LIGHTS S=0`, `LIGHTS`: the Daylight on a Stick switch off and on.
+   - `SET_FAN_SPEED FAN=nevermore_bed SPEED=1`: the under-bed Nevermores run;
+     `SPEED=0`.
    - `QUERY_PROBE`: open at rest, TRIGGERED when the nozzle is pushed up.
    - `QUERY_ENDSTOPS`: X and Y switch correctly when pressed by hand.
    - `SET_STEPPER_ENABLE STEPPER=stepper_x ENABLE=1`:
@@ -294,7 +297,8 @@ Keep the emergency stop (M112) at hand from step 4 on.
 6. `G32`: QGL range must shrink every round.
 7. **Paper test at the center:** `G0 X121 Y129 Z0.2`. Keep the z_offset or redo
    `PROBE_CALIBRATE`.
-8. *(Switch to Kalico here if you want it, see Kalico.)*
+8. First bed heat test (Bed section, 3 steps). *(Switch to Kalico here if
+   you want it, see Kalico.)*
    `PID_CALIBRATE HEATER=extruder TARGET=245`, `SAVE_CONFIG`;
    `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`
    (on Kalico: MPC calibration instead).
