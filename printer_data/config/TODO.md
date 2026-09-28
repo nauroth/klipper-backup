@@ -127,10 +127,10 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
   - Toolhead (Rapid Burner = Stealthburner layout): `[neopixel toolhead]` on
     EBB `PD3`, 3 LEDs, `GRBW`. Check: `STATUS_LEDS STATE=heating` should be
     orange. Wrong colours → try `color_order: GRB`.
-  - [x] Daylight on a Stick ×2 on **HE2** (`PA3`): `[output_pin caselight]`, on at
+  - [ ] Daylight on a Stick ×2 on **HE2** (`PA3`): `[output_pin caselight]`, on at
     startup, `LIGHTS S=0..1` to dim or switch off.
   - Spare: bag 14 has a 3-LED loom (3-pin JST).
-- [ ] **Display**: Pi TFT43 V2.1 runs KlipperScreen (installed and working);
+- [x] **Display**: Pi TFT43 V2.1 runs KlipperScreen (installed and working);
   nothing needed in printer.cfg. If the screen stays black after an OS update:
   the M8P DSI1 driver (see M8P manual, "DSI1 Display").
 - [ ] **Shake and Tune**: in printerBeta, but **install it first**, otherwise
@@ -219,7 +219,7 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     4. `POWER_OFF_PRINTER` from the console → same clean off as test 1.
     5. `AUTO_POWER_OFF ENABLE=1`, short print → off after the hotend cooled.
 
-- [ ] **Bed watermark vs PID → PID.** A steady plate temperature keeps the bed
+- [x] **Bed watermark vs PID → PID.** A steady plate temperature keeps the bed
   shape steady for the mesh, and the Omron SSR handles PID switching. First
   start: `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`
   (or MPC if you are on Kalico by then). PID vs watermark does **not** explain
@@ -243,7 +243,7 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     3. Then `PID_CALIBRATE HEATER=heater_bed TARGET=100`, `SAVE_CONFIG`.
   - If it still doesn't heat with the LED on: mains side, plug pulled, heater
     resistance ~160 Ω (open = heater or 125 °C fuse broken), bed fuse, SSR.
-- [ ] **Fans**
+- [x] **Fans**
   - Your question: **not always on.** Driver and enclosure fans only cool heat
     that the drivers and SSR produce, which only happens while motors are
     enabled or heaters are on. `controller_fan` does exactly that, plus run-on:
@@ -261,7 +261,7 @@ real pins, polarities, temperatures, noise. Those are the checks in section 4.
     `_PRINT_VARS`); after the print or a cancel it keeps running 10 min. Use it
     only fully on/off (`SET_FAN_SPEED FAN=nevermore_bed SPEED=1` / `0`).
   - [ ] StealthMax S: not connected yet. Commented placeholder on FAN5 (`PA6`).
-  - [ ] Chamber thermistor on TH0 (`PB0`), set as `Generic 3950`: check it reads
+  - [x] Chamber thermistor on TH0 (`PB0`), set as `Generic 3950`: check it reads
     room temperature; if it's way off, tell me the thermistor type.
   - Voron exhaust (loose, not installed): optional later.
 
